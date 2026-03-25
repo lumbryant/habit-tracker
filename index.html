@@ -840,6 +840,43 @@ function SwipeableQuoteCard({quote,index,isActive,onEdit,onDelete}){
   );
 }
 
+function LogModal({h,dur,setDur,onClose,onSubmit}){
+  const isHrs=h.unit==="hrs",min=isHrs?1:5,max=isHrs?16:180,step=isHrs?.5:5;
+  return (
+          <div className="overlay" style={{zIndex:60}} onClick={onClose}>
+            <div className="mcard" onClick={e=>e.stopPropagation()}>
+              <div style={{textAlign:"center",marginBottom:22}}><div style={{fontSize:46,marginBottom:8}}>{h.emoji}</div><h3 style={{fontFamily:"'Playfair Display',serif",fontSize:22,color:"#1f2d1f"}}>{h.label}</h3><p style={{color:"#94a3b8",fontSize:13,marginTop:6}}>How long today?</p></div>
+              <div style={{textAlign:"center",marginBottom:18}}><span style={{fontFamily:"'Playfair Display',serif",fontSize:52,fontWeight:700,color:h.accent}}>{fmt(dur,h.unit)}</span>{h.defaultGoal&&<div style={{fontSize:12,color:"#94a3b8",marginTop:4}}>Goal: {fmt(h.defaultGoal,h.unit)}</div>}</div>
+              <input type="range" min={min} max={max} step={step} value={dur} onChange={e=>setDur(Number(e.target.value))} style={{width:"100%",marginBottom:8,color:h.accent,background:`linear-gradient(to right,${h.accent} ${((dur-min)/(max-min))*100}%,#e8f0e8 0%)`}}/>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#94a3b8",marginBottom:24}}><span>{isHrs?"1h":"5m"}</span><span>{isHrs?"16h":"3h"}</span></div>
+              {dur>h.defaultGoal&&<div style={{background:"#f0fdf4",borderRadius:12,padding:"10px 14px",marginBottom:16,textAlign:"center"}}><span style={{fontSize:12,color:"#16a34a",fontWeight:500}}>🌟 {fmt(dur-h.defaultGoal,h.unit)} beyond your goal!</span></div>}
+              <div style={{display:"flex",gap:10}}>
+                <button onClick={onClose} style={{flex:1,border:"none",borderRadius:100,padding:"11px",fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:"pointer",background:"#f2f6f2",color:"#64748b"}}>Cancel</button>
+                <button onClick={onSubmit} style={{flex:2,border:"none",borderRadius:100,padding:"11px",fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:"pointer",background:h.accent,color:"#fff",boxShadow:`0 4px 16px ${h.accent}50`}}>Log It ✓</button>
+              </div>
+            </div>
+          </div>
+  );
+}
+
+function EditDurModal({h,editDur,setEditDur,onClose,onSubmit}){
+  const isHrs=h.unit==="hrs",min=isHrs?1:5,max=isHrs?16:180,step=isHrs?.5:5;
+  return (
+          <div className="overlay" style={{zIndex:70}} onClick={onClose}>
+            <div className="mcard" onClick={e=>e.stopPropagation()}>
+              <div style={{textAlign:"center",marginBottom:22}}><div style={{fontSize:46,marginBottom:8}}>{h.emoji}</div><h3 style={{fontFamily:"'Playfair Display',serif",fontSize:22,color:"#1f2d1f"}}>{h.label}</h3><div style={{display:"inline-block",marginTop:6,background:"#e8f4e8",borderRadius:100,padding:"4px 12px"}}><span style={{fontSize:12,color:"#4a7c59",fontWeight:500}}>Editing past entry</span></div></div>
+              <div style={{textAlign:"center",marginBottom:18}}><span style={{fontFamily:"'Playfair Display',serif",fontSize:52,fontWeight:700,color:h.accent}}>{fmt(editDur,h.unit)}</span></div>
+              <input type="range" min={min} max={max} step={step} value={editDur} onChange={e=>setEditDur(Number(e.target.value))} style={{width:"100%",marginBottom:8,color:h.accent,background:`linear-gradient(to right,${h.accent} ${((editDur-min)/(max-min))*100}%,#e8f0e8 0%)`}}/>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#94a3b8",marginBottom:24}}><span>{isHrs?"1h":"5m"}</span><span>{isHrs?"16h":"3h"}</span></div>
+              <div style={{display:"flex",gap:10}}>
+                <button onClick={onClose} style={{flex:1,border:"none",borderRadius:100,padding:"11px",fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:"pointer",background:"#f2f6f2",color:"#64748b"}}>Cancel</button>
+                <button onClick={onSubmit} style={{flex:2,border:"none",borderRadius:100,padding:"11px",fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:"pointer",background:h.accent,color:"#fff"}}>Save ✓</button>
+              </div>
+            </div>
+          </div>
+  );
+}
+
 function App({user, onSignOut}){
   const [syncing,  setSyncing]  = useState(false);
   const [lastSync, setLastSync] = useState(null);
@@ -999,6 +1036,7 @@ function App({user, onSignOut}){
   const calActive=calMk.filter(k=>habits.some(h=>logs[k]?.[h.id]?.done)).length;
   const calJournaled=calMk.filter(k=>hasJ(k)).length;
   const calStats=[["🌟","Perfect Days",`${calPerfect}`,"#7a8c5e"],["📅","Active Days",`${calActive}`,"#3d6b4f"],["📓","Journal Days",`${calJournaled}`,"#5b8a7a"]];
+  const dayModalTitle=dayModal?(dayModal===today?"Today":(()=>{const[yy,mm,dd]=dayModal.split("-").map(Number);return new Date(yy,mm-1,dd).toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"});})()):"";
   const dayDoneCount=dayModal?habits.filter(h=>logs[dayModal]?.[h.id]?.done).length:0;
   const dayModalSummary=dayModal?(dayDoneCount===0?"No habits logged":dayDoneCount===habits.length?"🎉 Perfect day!":`${dayDoneCount} of ${habits.length} habits`):"";
 
@@ -1300,7 +1338,7 @@ function App({user, onSignOut}){
             <div style={{padding:"22px 24px 16px",borderBottom:"1px solid #e8f0e8",position:"sticky",top:0,background:"#fff",borderRadius:"28px 28px 0 0",zIndex:2}}>
               <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between"}}>
                 <div>
-                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:"#1f2d1f"}}>{dayModal===today?"Today":(()=>{const[yy,mm,dd]=dayModal.split("-").map(Number);return new Date(yy,mm-1,dd).toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"});})()}</div>
+                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:"#1f2d1f"}}>{dayModalTitle}</div>
                   <div style={{fontSize:12,color:"#94a3b8",marginTop:2}}>{dayModalSummary}</div>
                 </div>
                 <button onClick={()=>setDayModal(null)} style={{background:"#f2f6f2",border:"none",borderRadius:"50%",width:32,height:32,cursor:"pointer",fontSize:16,color:"#94a3b8"}}>✕</button>
@@ -1331,45 +1369,20 @@ function App({user, onSignOut}){
       )}
 
       {/* LOG MODAL */}
-      {modal&&!editHab&&(()=>{
-        const h=habits.find(x=>x.id===modal.habitId);if(!h)return null;
-        const isHrs=h.unit==="hrs",min=isHrs?1:5,max=isHrs?16:180,step=isHrs?.5:5;
-        return (
-          <div className="overlay" style={{zIndex:60}} onClick={()=>setModal(null)}>
-            <div className="mcard" onClick={e=>e.stopPropagation()}>
-              <div style={{textAlign:"center",marginBottom:22}}><div style={{fontSize:46,marginBottom:8}}>{h.emoji}</div><h3 style={{fontFamily:"'Playfair Display',serif",fontSize:22,color:"#1f2d1f"}}>{h.label}</h3><p style={{color:"#94a3b8",fontSize:13,marginTop:6}}>How long today?</p></div>
-              <div style={{textAlign:"center",marginBottom:18}}><span style={{fontFamily:"'Playfair Display',serif",fontSize:52,fontWeight:700,color:h.accent}}>{fmt(dur,h.unit)}</span>{h.defaultGoal&&<div style={{fontSize:12,color:"#94a3b8",marginTop:4}}>Goal: {fmt(h.defaultGoal,h.unit)}</div>}</div>
-              <input type="range" min={min} max={max} step={step} value={dur} onChange={e=>setDur(Number(e.target.value))} style={{width:"100%",marginBottom:8,color:h.accent,background:`linear-gradient(to right,${h.accent} ${((dur-min)/(max-min))*100}%,#e8f0e8 0%)`}}/>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#94a3b8",marginBottom:24}}><span>{isHrs?"1h":"5m"}</span><span>{isHrs?"16h":"3h"}</span></div>
-              {dur>h.defaultGoal&&<div style={{background:"#f0fdf4",borderRadius:12,padding:"10px 14px",marginBottom:16,textAlign:"center"}}><span style={{fontSize:12,color:"#16a34a",fontWeight:500}}>🌟 {fmt(dur-h.defaultGoal,h.unit)} beyond your goal!</span></div>}
-              <div style={{display:"flex",gap:10}}>
-                <button onClick={()=>setModal(null)} style={{flex:1,border:"none",borderRadius:100,padding:"11px",fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:"pointer",background:"#f2f6f2",color:"#64748b"}}>Cancel</button>
-                <button onClick={submitLog} style={{flex:2,border:"none",borderRadius:100,padding:"11px",fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:"pointer",background:h.accent,color:"#fff",boxShadow:`0 4px 16px ${h.accent}50`}}>Log It ✓</button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {modal&&!editHab&&habits.find(x=>x.id===modal.habitId)&&<LogModal
+        h={habits.find(x=>x.id===modal.habitId)}
+        dur={dur} setDur={setDur}
+        onClose={()=>setModal(null)}
+        onSubmit={submitLog}
+      />}
 
       {/* EDIT DURATION MODAL */}
-      {editHab&&(()=>{
-        const h=habits.find(x=>x.id===editHab.habitId);if(!h)return null;
-        const isHrs=h.unit==="hrs",min=isHrs?1:5,max=isHrs?16:180,step=isHrs?.5:5;
-        return (
-          <div className="overlay" style={{zIndex:70}} onClick={()=>setEditHab(null)}>
-            <div className="mcard" onClick={e=>e.stopPropagation()}>
-              <div style={{textAlign:"center",marginBottom:22}}><div style={{fontSize:46,marginBottom:8}}>{h.emoji}</div><h3 style={{fontFamily:"'Playfair Display',serif",fontSize:22,color:"#1f2d1f"}}>{h.label}</h3><div style={{display:"inline-block",marginTop:6,background:"#e8f4e8",borderRadius:100,padding:"4px 12px"}}><span style={{fontSize:12,color:"#4a7c59",fontWeight:500}}>Editing past entry</span></div></div>
-              <div style={{textAlign:"center",marginBottom:18}}><span style={{fontFamily:"'Playfair Display',serif",fontSize:52,fontWeight:700,color:h.accent}}>{fmt(editDur,h.unit)}</span></div>
-              <input type="range" min={min} max={max} step={step} value={editDur} onChange={e=>setEditDur(Number(e.target.value))} style={{width:"100%",marginBottom:8,color:h.accent,background:`linear-gradient(to right,${h.accent} ${((editDur-min)/(max-min))*100}%,#e8f0e8 0%)`}}/>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#94a3b8",marginBottom:24}}><span>{isHrs?"1h":"5m"}</span><span>{isHrs?"16h":"3h"}</span></div>
-              <div style={{display:"flex",gap:10}}>
-                <button onClick={()=>setEditHab(null)} style={{flex:1,border:"none",borderRadius:100,padding:"11px",fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:"pointer",background:"#f2f6f2",color:"#64748b"}}>Cancel</button>
-                <button onClick={submitEditLog} style={{flex:2,border:"none",borderRadius:100,padding:"11px",fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:"pointer",background:h.accent,color:"#fff"}}>Save ✓</button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {editHab&&habits.find(x=>x.id===editHab.habitId)&&<EditDurModal
+        h={habits.find(x=>x.id===editHab.habitId)}
+        editDur={editDur} setEditDur={setEditDur}
+        onClose={()=>setEditHab(null)}
+        onSubmit={submitEditLog}
+      />}
 
       {editH&&<EditHabitModal habit={editH} onSave={saveHabitEdit} onClose={()=>setEditH(null)}/>}
 
