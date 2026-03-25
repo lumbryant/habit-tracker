@@ -18,7 +18,7 @@ const { useState, useEffect, useRef } = React;
 /* ── Supabase ── */
 const SUPA_URL = "https://txtwxjcytoxqcumfoegu.supabase.co";
 const SUPA_KEY = "sb_publishable_CLJw5F6D8V-3cThbkNgc0w_xyRzR7VI";
-const supabase = window.supabase.createClient(SUPA_URL, SUPA_KEY, {
+const db = window.supabase.createClient(SUPA_URL, SUPA_KEY, {
   auth: {
     persistSession: true,
     storageKey: "flourish_auth",
@@ -41,20 +41,20 @@ function AuthScreen({onAuth}){
     setError(""); setMsg(""); setLoading(true);
     try {
       if(mode==="login"){
-        const {data,error} = await supabase.auth.signInWithPassword({email,password});
+        const {data,error} = await db.auth.signInWithPassword({email,password});
         if(error) throw error;
         if(!remember){
           // sign out after session ends (no persistence beyond tab)
-          await supabase.auth.updateUser({});
+          await db.auth.updateUser({});
         }
         onAuth(data.user);
       } else if(mode==="signup"){
-        const {data,error} = await supabase.auth.signUp({email,password});
+        const {data,error} = await db.auth.signUp({email,password});
         if(error) throw error;
         setMsg("Check your email to confirm your account, then log in.");
         setMode("login");
       } else {
-        const {error} = await supabase.auth.resetPasswordForEmail(email);
+        const {error} = await db.auth.resetPasswordForEmail(email);
         if(error) throw error;
         setMsg("Password reset email sent! Check your inbox.");
         setMode("login");
@@ -920,7 +920,7 @@ function App({user, onSignOut}){
       if(!user) return;
       setSyncing(true);
       try {
-        const {data,error} = await supabase
+        const {data,error} = await db
           .from("flourish_data")
           .select("data,updated_at")
           .eq("user_id", user.id)
@@ -953,7 +953,7 @@ function App({user, onSignOut}){
         data: {logs,habits,journals,periods,quotes,appName,calVis},
         updated_at: new Date().toISOString(),
       };
-      supabase.from("flourish_data")
+      db.from("flourish_data")
         .upsert(payload, {onConflict:"user_id"})
         .then(({error})=>{
           if(error) console.error("Sync error:", error);
@@ -1417,19 +1417,19 @@ function Root(){
 
   useEffect(()=>{
     // Check for existing session on load
-    supabase.auth.getSession().then(({data:{session}})=>{
+    db.auth.getSession().then(({data:{session}})=>{
       setUser(session?.user ?? null);
       setLoading(false);
     });
     // Listen for auth changes
-    const {data:{subscription}} = supabase.auth.onAuthStateChange((_event,session)=>{
+    const {data:{subscription}} = db.auth.onAuthStateChange((_event,session)=>{
       setUser(session?.user ?? null);
     });
     return ()=>subscription.unsubscribe();
   },[]);
 
   async function handleSignOut(){
-    await supabase.auth.signOut();
+    await db.auth.signOut();
     setUser(null);
   }
 
