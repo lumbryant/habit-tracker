@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0"/>
 <title>Flourish ✨</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✨</text></svg>"/>
-<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin onerror="document.body.innerHTML='<div style=padding:20px;color:red>Failed to load React</div>'"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js" onerror="document.body.innerHTML='<div style=padding:20px;color:red>Failed to load Babel</div>'"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 <body style="margin:0;padding:0;background:#f4f7f4;">
 <div id="root"></div>
@@ -18,7 +18,7 @@ const { useState, useEffect, useRef } = React;
 /* ── Supabase ── */
 const SUPA_URL = "https://txtwxjcytoxqcumfoegu.supabase.co";
 const SUPA_KEY = "sb_publishable_CLJw5F6D8V-3cThbkNgc0w_xyRzR7VI";
-const supabase = window.supabase.createClient(SUPA_URL, SUPA_KEY, {
+const supabase = (window.supabase||window.supabaseJs||{createClient:()=>({auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe:()=>{}}}}),signInWithPassword:async()=>({error:{message:"Supabase not loaded"}}),signUp:async()=>({error:{message:"Supabase not loaded"}}),signOut:async()=>{}},from:()=>({select:()=>({eq:()=>({single:async()=>({data:null,error:null})})})})})}).createClient(SUPA_URL, SUPA_KEY, {
   auth: {
     persistSession: true,
     storageKey: "flourish_auth",
@@ -1416,21 +1416,26 @@ function Root(){
     setUser(null);
   }
 
-  if(loading) return (
+  return loading ? (
     <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#f9fbf9,#eef4ee)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'DM Sans',sans-serif"}}>
       <div style={{textAlign:"center",color:"#94a3b8"}}>
         <div style={{fontSize:40,marginBottom:12,animation:"spin 1s linear infinite",display:"inline-block"}}>🌿</div>
         <p style={{fontSize:14}}>Loading…</p>
       </div>
     </div>
+  ) : !user ? (
+    <AuthScreen onAuth={setUser}/>
+  ) : (
+    <App user={user} onSignOut={handleSignOut}/>
   );
-
-  if(!user) return <AuthScreen onAuth={setUser}/>;
-  return <App user={user} onSignOut={handleSignOut}/>;
 }
 
-const root=ReactDOM.createRoot(document.getElementById("root"));
-root.render(<Root/>);
+try {
+  const root=ReactDOM.createRoot(document.getElementById("root"));
+  root.render(<Root/>);
+} catch(e) {
+  document.getElementById("root").innerHTML = '<div style="padding:20px;font-family:sans-serif;color:#d64545"><h2>App Error</h2><pre style="font-size:12px;margin-top:10px;white-space:pre-wrap">'+e.message+'\n\n'+e.stack+'</pre></div>';
+}
 </script>
 </body>
 </html>
