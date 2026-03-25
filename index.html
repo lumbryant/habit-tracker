@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0"/>
-<title>Flourish ✨</title>
+<title>Who will I be next year ✨</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✨</text></svg>"/>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -21,7 +21,7 @@ const SUPA_KEY = "sb_publishable_CLJw5F6D8V-3cThbkNgc0w_xyRzR7VI";
 const db = window.supabase.createClient(SUPA_URL, SUPA_KEY, {
   auth: {
     persistSession: true,
-    storageKey: "flourish_auth",
+    storageKey: "Who will I be next year_auth",
     storage: window.localStorage,
     autoRefreshToken: true,
   }
@@ -70,7 +70,7 @@ function AuthScreen({onAuth}){
         {/* Logo */}
         <div style={{textAlign:"center",marginBottom:28}}>
           <div style={{fontSize:42,marginBottom:8}}>🌿</div>
-          <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:30,fontWeight:700,color:"#1f2d1f",letterSpacing:"-0.5px"}}>Flourish</h1>
+          <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:30,fontWeight:700,color:"#1f2d1f",letterSpacing:"-0.5px"}}>Who will I be next year</h1>
           <p style={{fontSize:13,color:"#94a3b8",marginTop:4}}>{mode==="login"?"Welcome back":"Create your account"}</p>
         </div>
 
@@ -161,14 +161,14 @@ const PALETTE=[["#ffd6d6","#d64545"],["#ffd6f0","#c4357a"],["#e8d6ff","#7c4fc4"]
 
 
 const DEFAULT_QUOTES = [
-  "The secret of getting ahead is getting started.",
-  "Small steps every day lead to big changes over time.",
-  "You don't have to be great to start, but you have to start to be great.",
+  "If you get 1% better each day for one year, you’ll end up 37 times better by the time you’re done.",
+  "Success is the product of daily habits—not once-in-a-lifetime transformations.",
+  "You do not rise to the level of your goals. You fall to the level of your systems.",
   "Discipline is choosing between what you want now and what you want most.",
-  "Progress, not perfection.",
-  "Your future self is watching you right now through your memories.",
-  "Every day is a chance to be better than yesterday.",
-  "Consistency is the key that unlocks every door.",
+  "The ultimate form of intrinsic motivation is when a habit becomes part of your identity.",
+  "Compare yourself to who you were yesterday, not to who someone else is today.",
+  "You are in danger of living a life so comfortable and soft that you will die without ever realizing your true potential.",
+  "Don’t live the same year 75 times and call it a life.",
 ];
 
 
@@ -886,7 +886,7 @@ function App({user, onSignOut}){
   const [quoteIdx,   setQuoteIdx]   = useState(()=>ls("fl_qidx",0));
   const [quoteEditIdx,setQuoteEditIdx] = useState(null);
   const [quoteEditTxt,setQuoteEditTxt] = useState("");
-  const [appName, setAppName] = useState(()=>ls("fl_appname","Flourish"));
+  const [appName, setAppName] = useState(()=>ls("fl_appname","Who will I be next year"));
   const [habits,  setHabits]  = useState(()=>ls("fl_habits",DEFAULT_HABITS));
   const [journals,setJournals]= useState(()=>ls("fl_journals",{}));
   const [periods, setPeriods] = useState(()=>ls("fl_periods",DEFAULT_PERIODS));
@@ -921,7 +921,7 @@ function App({user, onSignOut}){
       setSyncing(true);
       try {
         const {data,error} = await db
-          .from("flourish_data")
+          .from("Who will I be next year_data")
           .select("data,updated_at")
           .eq("user_id", user.id)
           .single();
@@ -953,7 +953,7 @@ function App({user, onSignOut}){
         data: {logs,habits,journals,periods,quotes,appName,calVis},
         updated_at: new Date().toISOString(),
       };
-      db.from("flourish_data")
+      db.from("Who will I be next year_data")
         .upsert(payload, {onConflict:"user_id"})
         .then(({error})=>{
           if(error) console.error("Sync error:", error);
@@ -1272,8 +1272,8 @@ function App({user, onSignOut}){
               <div style={{fontSize:13,fontWeight:600,color:"#1f2d1f",marginBottom:12}}>App Name</div>
               <div style={{display:"flex",gap:10,alignItems:"center"}}>
 
-                <input value={appName} onChange={e=>setAppName(e.target.value)} onBlur={e=>{if(!e.target.value.trim())setAppName("Flourish");}} placeholder="Flourish" style={{flex:1,border:"1.5px solid #d4e4d4",borderRadius:12,padding:"10px 14px",fontSize:16,fontFamily:"'Playfair Display',serif",fontWeight:700,color:"#1f2d1f",outline:"none",background:"#fafcfa"}}/>
-                <button onClick={()=>setAppName("Flourish")}
+                <input value={appName} onChange={e=>setAppName(e.target.value)} onBlur={e=>{if(!e.target.value.trim())setAppName("Who will I be next year");}} placeholder="Who will I be next year" style={{flex:1,border:"1.5px solid #d4e4d4",borderRadius:12,padding:"10px 14px",fontSize:16,fontFamily:"'Playfair Display',serif",fontWeight:700,color:"#1f2d1f",outline:"none",background:"#fafcfa"}}/>
+                <button onClick={()=>setAppName("Who will I be next year")}
                   style={{border:"none",borderRadius:10,padding:"10px 14px",fontSize:12,fontFamily:"'DM Sans',sans-serif",cursor:"pointer",background:"#f2f6f2",color:"#94a3b8",whiteSpace:"nowrap"}}>Reset</button>
               </div>
               <div style={{fontSize:11,color:"#94a3b8",marginTop:8}}>This name shows at the top of your app</div>
@@ -1292,10 +1292,10 @@ function App({user, onSignOut}){
               <div style={{fontFamily:"'Playfair Display',serif",fontSize:19,color:"#1f2d1f",marginBottom:4}}>Backup & Restore</div>
               <div style={{fontSize:12,color:"#94a3b8",marginBottom:14}}>Export weekly to protect your data. Import anytime to restore.</div>
               <button onClick={()=>{
-                const data={version:1,exportedAt:new Date().toISOString(),logs:JSON.parse(localStorage.getItem("fl_logs")||"{}"),habits:JSON.parse(localStorage.getItem("fl_habits")||"[]"),journals:JSON.parse(localStorage.getItem("fl_journals")||"{}"),periods:JSON.parse(localStorage.getItem("fl_periods")||"[]"),quotes:JSON.parse(localStorage.getItem("fl_quotes")||"[]"),appName:localStorage.getItem("fl_appname")||"Flourish",calVis:JSON.parse(localStorage.getItem("fl_cal_vis")||"null")};
+                const data={version:1,exportedAt:new Date().toISOString(),logs:JSON.parse(localStorage.getItem("fl_logs")||"{}"),habits:JSON.parse(localStorage.getItem("fl_habits")||"[]"),journals:JSON.parse(localStorage.getItem("fl_journals")||"{}"),periods:JSON.parse(localStorage.getItem("fl_periods")||"[]"),quotes:JSON.parse(localStorage.getItem("fl_quotes")||"[]"),appName:localStorage.getItem("fl_appname")||"Who will I be next year",calVis:JSON.parse(localStorage.getItem("fl_cal_vis")||"null")};
                 const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
                 const url=URL.createObjectURL(blob);
-                const a=document.createElement("a");a.href=url;a.download=`flourish-backup-${new Date().toISOString().split("T")[0]}.json`;a.click();URL.revokeObjectURL(url);
+                const a=document.createElement("a");a.href=url;a.download=`Who will I be next year-backup-${new Date().toISOString().split("T")[0]}.json`;a.click();URL.revokeObjectURL(url);
               }} style={{width:"100%",border:"none",borderRadius:14,padding:"14px",fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:600,cursor:"pointer",background:"#4a7c59",color:"#fff",boxShadow:"0 4px 14px rgba(74,124,89,.25)",marginBottom:10,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
                 <span style={{fontSize:18}}>📤</span> Export My Data
               </button>
