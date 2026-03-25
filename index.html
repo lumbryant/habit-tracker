@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0"/>
 <title>Flourish ✨</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✨</text></svg>"/>
-<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin onerror="document.body.innerHTML='<div style=padding:20px;color:red>Failed to load React</div>'"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js" onerror="document.body.innerHTML='<div style=padding:20px;color:red>Failed to load Babel</div>'"></script>
-<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body style="margin:0;padding:0;background:#f4f7f4;">
 <div id="root"></div>
@@ -18,7 +18,7 @@ const { useState, useEffect, useRef } = React;
 /* ── Supabase ── */
 const SUPA_URL = "https://txtwxjcytoxqcumfoegu.supabase.co";
 const SUPA_KEY = "sb_publishable_CLJw5F6D8V-3cThbkNgc0w_xyRzR7VI";
-const supabase = (window.supabase||window.supabaseJs||{createClient:()=>({auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe:()=>{}}}}),signInWithPassword:async()=>({error:{message:"Supabase not loaded"}}),signUp:async()=>({error:{message:"Supabase not loaded"}}),signOut:async()=>{}},from:()=>({select:()=>({eq:()=>({single:async()=>({data:null,error:null})})})})})}).createClient(SUPA_URL, SUPA_KEY, {
+const supabase = window.supabase.createClient(SUPA_URL, SUPA_KEY, {
   auth: {
     persistSession: true,
     storageKey: "flourish_auth",
@@ -909,22 +909,22 @@ function App({user, onSignOut}){
   // Save to Supabase whenever data changes (debounced 1.5s)
   useEffect(()=>{
     if(!user) return;
-    const t = setTimeout(async()=>{
+    const saveData = ()=>{
       setSyncing(true);
-      try {
-        const payload = {
-          user_id: user.id,
-          data: {logs,habits,journals,periods,quotes,appName,calVis},
-          updated_at: new Date().toISOString(),
-        };
-        const {error} = await supabase
-          .from("flourish_data")
-          .upsert(payload, {onConflict:"user_id"});
-        if(error) throw error;
-        setLastSync(new Date());
-      } catch(e){ console.error("Sync error:", e); }
-      setSyncing(false);
-    }, 1500);
+      const payload = {
+        user_id: user.id,
+        data: {logs,habits,journals,periods,quotes,appName,calVis},
+        updated_at: new Date().toISOString(),
+      };
+      supabase.from("flourish_data")
+        .upsert(payload, {onConflict:"user_id"})
+        .then(({error})=>{
+          if(error) console.error("Sync error:", error);
+          else setLastSync(new Date());
+          setSyncing(false);
+        });
+    };
+    const t = setTimeout(saveData, 1500);
     return ()=>clearTimeout(t);
   },[logs,habits,journals,periods,quotes,appName,calVis]);
 
@@ -993,6 +993,14 @@ function App({user, onSignOut}){
     return quotes.length>0?quotes[quoteIdx%quotes.length]:"☀️ A fresh day awaits.";
   };
   function cycleQuote(){ if(quotes.length>1) setQuoteIdx(i=>(i+1)%quotes.length); }
+
+  const calMk=Array.from({length:daysInMo},(_,i)=>`${y}-${String(mo+1).padStart(2,"0")}-${String(i+1).padStart(2,"0")}`).filter(k=>!isFuture(k));
+  const calPerfect=calMk.filter(k=>habits.length&&habits.every(h=>logs[k]?.[h.id]?.done)).length;
+  const calActive=calMk.filter(k=>habits.some(h=>logs[k]?.[h.id]?.done)).length;
+  const calJournaled=calMk.filter(k=>hasJ(k)).length;
+  const calStats=[["🌟","Perfect Days",`${calPerfect}`,"#7a8c5e"],["📅","Active Days",`${calActive}`,"#3d6b4f"],["📓","Journal Days",`${calJournaled}`,"#5b8a7a"]];
+  const dayDoneCount=dayModal?habits.filter(h=>logs[dayModal]?.[h.id]?.done).length:0;
+  const dayModalSummary=dayModal?(dayDoneCount===0?"No habits logged":dayDoneCount===habits.length?"🎉 Perfect day!":`${dayDoneCount} of ${habits.length} habits`):"";
 
   return (
     <div style={{fontFamily:"'DM Sans',sans-serif",minHeight:"100vh",background:"linear-gradient(160deg,#f9fbf9 0%,#eef4ee 50%,#f0f5f0 100%)",paddingBottom:80}}>
@@ -1137,19 +1145,13 @@ function App({user, onSignOut}){
               </div>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-              {(()=>{
-                const mk=Array.from({length:daysInMo},(_,i)=>`${y}-${String(mo+1).padStart(2,"0")}-${String(i+1).padStart(2,"0")}`).filter(k=>!isFuture(k));
-                const perfect=mk.filter(k=>habits.length&&habits.every(h=>logs[k]?.[h.id]?.done)).length;
-                const active=mk.filter(k=>habits.some(h=>logs[k]?.[h.id]?.done)).length;
-                const journaled=mk.filter(k=>hasJ(k)).length;
-                return [["🌟","Perfect Days",`${perfect}`,"#7a8c5e"],["📅","Active Days",`${active}`,"#3d6b4f"],["📓","Journal Days",`${journaled}`,"#5b8a7a"]].map(([icon,label,val,c])=>(
+              {calStats.map(([icon,label,val,c])=>(
                   <div key={label} style={{background:"#fff",borderRadius:18,padding:"16px 12px",textAlign:"center",boxShadow:"0 2px 12px rgba(0,0,0,.05)"}}>
                     <div style={{fontSize:18}}>{icon}</div>
                     <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:c,marginTop:4}}>{val}</div>
                     <div style={{fontSize:10.5,color:"#94a3b8",marginTop:2}}>{label}</div>
                   </div>
-                ));
-              })()}
+                ))}
             </div>
           </div>
         )}
@@ -1290,6 +1292,8 @@ function App({user, onSignOut}){
           </div>
         )}
 
+      </div>
+
       {dayModal&&(
         <div className="overlay" onClick={()=>setDayModal(null)}>
           <div className="day-mcard" onClick={e=>e.stopPropagation()}>
@@ -1297,7 +1301,7 @@ function App({user, onSignOut}){
               <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between"}}>
                 <div>
                   <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:"#1f2d1f"}}>{dayModal===today?"Today":(()=>{const[yy,mm,dd]=dayModal.split("-").map(Number);return new Date(yy,mm-1,dd).toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"});})()}</div>
-                  <div style={{fontSize:12,color:"#94a3b8",marginTop:2}}>{(()=>{const cnt=habits.filter(h=>logs[dayModal]?.[h.id]?.done).length;return cnt===0?"No habits logged":cnt===habits.length?"🎉 Perfect day!":`${cnt} of ${habits.length} habits`;})()}</div>
+                  <div style={{fontSize:12,color:"#94a3b8",marginTop:2}}>{dayModalSummary}</div>
                 </div>
                 <button onClick={()=>setDayModal(null)} style={{background:"#f2f6f2",border:"none",borderRadius:"50%",width:32,height:32,cursor:"pointer",fontSize:16,color:"#94a3b8"}}>✕</button>
               </div>
@@ -1430,12 +1434,8 @@ function Root(){
   );
 }
 
-try {
-  const root=ReactDOM.createRoot(document.getElementById("root"));
-  root.render(<Root/>);
-} catch(e) {
-  document.getElementById("root").innerHTML = '<div style="padding:20px;font-family:sans-serif;color:#d64545"><h2>App Error</h2><pre style="font-size:12px;margin-top:10px;white-space:pre-wrap">'+e.message+'\n\n'+e.stack+'</pre></div>';
-}
+const root=ReactDOM.createRoot(document.getElementById("root"));
+root.render(<Root/>);
 </script>
 </body>
 </html>
