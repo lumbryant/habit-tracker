@@ -186,14 +186,32 @@ function fmt(min,unit){
 
 function pLbl(p){ return p.startH===null?"All day":`${fmtH(p.startH,p.startM)} – ${fmtH(p.endH,p.endM)}`; }
 
-function streak(logs,id){
+function streak(logs,id,graceDays=[]){
   let s=0;const now=new Date();
-  for(let i=0;i<400;i++){const d=new Date(now);d.setDate(d.getDate()-i);if(logs[dateKey(d)]?.[id]?.done)s++;else break;}
+  for(let i=0;i<400;i++){
+    const d=new Date(now);d.setDate(d.getDate()-i);
+    const k=dateKey(d);
+    if(logs[k]?.[id]?.done){s++;}
+    else if(graceDays.includes(d.getDay())){/* skip grace day */}
+    else break;
+  }
   return s;
 }
-function longestStreak(logs,id){
+function longestStreak(logs,id,graceDays=[]){
   const keys=Object.keys(logs).sort();let best=0,cur=0,prev=null;
-  for(const k of keys){if(logs[k]?.[id]?.done){if(prev){const diff=(new Date(k)-new Date(prev))/86400000;cur=diff===1?cur+1:1;}else cur=1;best=Math.max(best,cur);prev=k;}else{cur=0;prev=null;}}
+  for(const k of keys){
+    const dow=new Date(k).getDay();
+    if(logs[k]?.[id]?.done){
+      if(prev){
+        const diff=(new Date(k)-new Date(prev))/86400000;
+        // Allow gap if all days in between are grace days
+        let valid=true;
+        for(let g=1;g<diff;g++){const gd=new Date(prev);gd.setDate(gd.getDate()+g);if(!graceDays.includes(gd.getDay())){valid=false;break;}}
+        cur=valid?cur+1:1;
+      }else cur=1;
+      best=Math.max(best,cur);prev=k;
+    }else if(!graceDays.includes(dow)){cur=0;prev=null;}
+  }
   return best;
 }
 function nextMile(s){ return MILESTONES.find(m=>m>s)||null; }
@@ -429,7 +447,7 @@ function JAddModal({initialEntry=null,defaultFrom=null,onSave,onClose}){
   );
 }
 /* ── Journal View ── */
-function JournalView({journals,setJournals}){
+function JournalView({journals,setJournals,weeklyReviews,isSunday,thisWeekKey,onGenerateReview,reviewLoading}){
   const [sel,       setSel]       = useState(todayKey());
   const [adding,    setAdding]    = useState(false);
   const [editEntry, setEditEntry] = useState(null); // {entryId, entry}
@@ -527,6 +545,34 @@ function JournalView({journals,setJournals}){
         </div>
       )}
 
+      {/* Weekly Review */}
+      {(isSunday||weeklyReviews[thisWeekKey])&&(
+        <div style={{background:"#fff",borderRadius:20,padding:"18px 20px",marginBottom:14,boxShadow:"0 2px 14px rgba(0,0,0,.05)"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+            <div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:"#1f2d1f"}}>✨ Weekly Review</div>
+              <div style={{fontSize:11,color:"#94a3b8",marginTop:2}}>{weeklyReviews[thisWeekKey]?"AI reflection for this week":"Available every Sunday"}</div>
+            </div>
+            {(!weeklyReviews[thisWeekKey]||true)&&<button onClick={onGenerateReview} disabled={reviewLoading}
+              style={{border:"none",borderRadius:100,padding:"8px 16px",fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,cursor:reviewLoading?"default":"pointer",background:reviewLoading?"#d4e4d4":"#4a7c59",color:"#fff",whiteSpace:"nowrap"}}>
+              {reviewLoading?"Generating…":weeklyReviews[thisWeekKey]?"↻ Regenerate":"Generate ✨"}
+            </button>}
+          </div>
+          {weeklyReviews[thisWeekKey]&&(
+            <div>
+              <p style={{fontSize:13,color:"#374151",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{weeklyReviews[thisWeekKey].text}</p>
+              {weeklyReviews[thisWeekKey].habitSummary&&<div style={{marginTop:12,fontSize:11,color:"#94a3b8",borderTop:"1px solid #f2f6f2",paddingTop:10}}>
+                <div style={{fontWeight:600,marginBottom:4}}>This week:</div>
+                {weeklyReviews[thisWeekKey].habitSummary.split(", ").map((s,i)=><div key={i}>{s}</div>)}
+                {weeklyReviews[thisWeekKey].avgRating&&<div style={{marginTop:4}}>Avg mood: {weeklyReviews[thisWeekKey].avgRating}/10</div>}
+              </div>}
+            </div>
+          )}
+          {!weeklyReviews[thisWeekKey]&&!reviewLoading&&<p style={{fontSize:13,color:"#94a3b8",fontStyle:"italic"}}>Tap "Generate" to get a personalized reflection on your week based on your journal entries, habit streaks, and mood ratings.</p>}
+          {reviewLoading&&<div style={{display:"flex",alignItems:"center",gap:8,color:"#94a3b8",fontSize:13}}><span style={{animation:"spin 1s linear infinite",display:"inline-block"}}>⟳</span> Analyzing your week…</div>}
+        </div>
+      )}
+
       {/* Add Entry button */}
       <button onClick={()=>setAdding(true)}
         style={{width:"100%",border:"2px dashed #b7d7c2",borderRadius:18,padding:"15px",fontSize:15,fontWeight:500,color:"#4a7c59",background:"#fff",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:8,transition:"all .15s"}}>
@@ -620,10 +666,10 @@ function TrendsView({logs,habits}){
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
         {[
-          {icon:"🔥",l:"Current Streak",v:`${streak(logs,h.id)} days`,c:h.accent},
-          {icon:"🏆",l:"Longest Streak",v:`${longestStreak(logs,h.id)} days`,c:"#5b8a7a"},
+          {icon:"🔥",l:"Current Streak",v:`${streak(logs,h.id,graceDays)} days`,c:h.accent},
+          {icon:"🏆",l:"Longest Streak",v:`${longestStreak(logs,h.id,graceDays)} days`,c:"#5b8a7a"},
           {icon:"📅",l:"Total Logged",v:`${Object.values(logs).filter(d=>d[h.id]?.done).length} days`,c:"#3d6b4f"},
-          {icon:"🎯",l:"Next Milestone",v:(()=>{const nm=nextMile(streak(logs,h.id));return nm?`${nm} days`:"Legend! 🏅";})(),c:"#7a8c5e"},
+          {icon:"🎯",l:"Next Milestone",v:(()=>{const nm=nextMile(streak(logs,h.id,graceDays));return nm?`${nm} days`:"Legend! 🏅";})(),c:"#7a8c5e"},
         ].map(s=>(
           <div key={s.l} style={{background:"#fff",borderRadius:18,padding:"14px 16px",boxShadow:"0 2px 14px rgba(0,0,0,.05)",display:"flex",alignItems:"center",gap:10}}>
             <span style={{fontSize:22}}>{s.icon}</span>
@@ -901,7 +947,10 @@ function App({user, onSignOut}){
   const [nh,      setNh]      = useState({label:"",emoji:"⭐",unit:"min",defaultGoal:30,type:"do",color:"#fde68a",accent:"#7a8c5e"});
   const [dayModal,setDayModal]= useState(null);
   const [editHab, setEditHab] = useState(null);
-  const [editDur, setEditDur] = useState(30);
+  const [editDur,      setEditDur]      = useState(30);
+  const [graceDays,    setGraceDays]    = useState(()=>ls("fl_grace_days",[]));
+  const [weeklyReviews,setWeeklyReviews]= useState(()=>ls("fl_weekly_reviews",{}));
+  const [reviewLoading,setReviewLoading]= useState(false);
   const today=todayKey();
 
   useEffect(()=>{ localStorage.setItem("fl_logs",    JSON.stringify(logs));    },[logs]);
@@ -911,7 +960,9 @@ function App({user, onSignOut}){
   useEffect(()=>{ localStorage.setItem("fl_habits",  JSON.stringify(habits));  },[habits]);
   useEffect(()=>{ localStorage.setItem("fl_journals",JSON.stringify(journals));},[journals]);
   useEffect(()=>{ localStorage.setItem("fl_periods", JSON.stringify(periods)); },[periods]);
-  useEffect(()=>{ localStorage.setItem("fl_cal_vis", JSON.stringify(calVis));  },[calVis]);
+  useEffect(()=>{ localStorage.setItem("fl_cal_vis",       JSON.stringify(calVis));        },[calVis]);
+  useEffect(()=>{ localStorage.setItem("fl_grace_days",    JSON.stringify(graceDays));    },[graceDays]);
+  useEffect(()=>{ localStorage.setItem("fl_weekly_reviews",JSON.stringify(weeklyReviews));},[weeklyReviews]);
 
   /* ── Supabase sync ── */
   // Load data from Supabase when app starts
@@ -936,7 +987,9 @@ function App({user, onSignOut}){
           if(d.periods)  { setPeriods(d.periods);    localStorage.setItem("fl_periods",  JSON.stringify(d.periods)); }
           if(d.quotes)   { setQuotes(d.quotes);      localStorage.setItem("fl_quotes",   JSON.stringify(d.quotes)); }
           if(d.appName)  { setAppName(d.appName);    localStorage.setItem("fl_appname",  d.appName); }
-          if(d.calVis)   { setCalVis(d.calVis);      localStorage.setItem("fl_cal_vis",  JSON.stringify(d.calVis)); }
+          if(d.calVis)      { setCalVis(d.calVis);           localStorage.setItem("fl_cal_vis",        JSON.stringify(d.calVis)); }
+          if(d.graceDays)   { setGraceDays(d.graceDays);     localStorage.setItem("fl_grace_days",    JSON.stringify(d.graceDays)); }
+          if(d.weeklyReviews){ setWeeklyReviews(d.weeklyReviews); localStorage.setItem("fl_weekly_reviews",JSON.stringify(d.weeklyReviews)); }
           setLastSync(new Date(data.updated_at));
         }
       } catch(e){ console.error("Load error:", e); }
@@ -952,7 +1005,7 @@ function App({user, onSignOut}){
       setSyncing(true);
       const payload = {
         user_id: user.id,
-        data: {logs,habits,journals,periods,quotes,appName,calVis},
+        data: {logs,habits,journals,periods,quotes,appName,calVis,graceDays,weeklyReviews},
         updated_at: new Date().toISOString(),
       };
       // Try update first, then insert if no row exists
@@ -1049,6 +1102,36 @@ function App({user, onSignOut}){
   const calJournaled=calMk.filter(k=>hasJ(k)).length;
   const calStats=[["🌟","Perfect Days",`${calPerfect}`,"#7a8c5e"],["📅","Active Days",`${calActive}`,"#3d6b4f"],["📓","Journal Days",`${calJournaled}`,"#5b8a7a"]];
   const dayModalTitle=dayModal?(dayModal===today?"Today":(()=>{const[yy,mm,dd]=dayModal.split("-").map(Number);return new Date(yy,mm-1,dd).toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"});})()):"";
+  // ── Weekly Review ──
+  const isSunday=new Date().getDay()===0;
+  const thisWeekKey=(()=>{const d=new Date();d.setDate(d.getDate()-d.getDay());return dateKey(d);})();
+
+  async function generateWeeklyReview(){
+    setReviewLoading(true);
+    try {
+      const days=Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-6+i);return dateKey(d);});
+      const habitSummary=habits.map(h=>{
+        const done=days.filter(k=>logs[k]?.[h.id]?.done).length;
+        return h.emoji+" "+h.label+": "+done+"/7 days";
+      }).join(", ");
+      const journalEntries=days.flatMap(k=>Object.values(journals[k]||{})).filter(e=>e.text);
+      const ratings=journalEntries.map(e=>e.rating).filter(Boolean);
+      const avgRating=ratings.length?(ratings.reduce((a,b)=>a+b,0)/ratings.length).toFixed(1):null;
+      const entryTexts=journalEntries.map(e=>"["+(e.periodLabel||"Entry")+"] "+e.text).join(" | ");
+      const prompt="You are a supportive personal coach. Based on this week's data, write a warm insightful review in 3-4 short paragraphs. Be specific, encouraging, honest. Focus on patterns, wins, and one area for improvement. Write in second person under 200 words. HABITS: "+habitSummary+". AVG MOOD: "+(avgRating?avgRating+"/10":"not recorded")+". JOURNAL: "+(entryTexts||"no entries");
+      const res=await fetch("https://api.anthropic.com/v1/messages",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,messages:[{role:"user",content:prompt}]})
+      });
+      const json=await res.json();
+      const reviewText=json.content?.[0]?.text||"Could not generate review.";
+      setWeeklyReviews(p=>({...p,[thisWeekKey]:{text:reviewText,generatedAt:Date.now(),habitSummary,avgRating}}));
+    } catch(e){ console.error("Review error:",e); }
+    setReviewLoading(false);
+  }
+  const todayDow=new Date().getDay();
+  const isGraceDay=graceDays.includes(todayDow);
   const dayDoneCount=dayModal?habits.filter(h=>logs[dayModal]?.[h.id]?.done).length:0;
   const dayModalSummary=dayModal?(dayDoneCount===0?"No habits logged":dayDoneCount===habits.length?"🎉 Perfect day!":`${dayDoneCount} of ${habits.length} habits`):"";
 
@@ -1122,12 +1205,13 @@ function App({user, onSignOut}){
             <div onClick={()=>cycleQuote()} style={{background:"linear-gradient(135deg,#e8f4e8,#ddeedd)",borderRadius:18,padding:"14px 18px",marginBottom:20,borderLeft:"4px solid #4a7c59",cursor:quotes.length>1?"pointer":"default"}}>
               <p style={{fontSize:14,color:"#2d4a2d",fontWeight:500,lineHeight:1.5}}>"{currentQuote}"</p>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:8}}>
-                {progressMsg&&<span style={{fontSize:11,color:"#4a7c59",fontWeight:600}}>{progressMsg}</span>}
+                {isGraceDay&&<span style={{fontSize:11,background:"#e8f4e8",color:"#4a7c59",borderRadius:100,padding:"2px 9px",fontWeight:600}}>🌿 Grace Day — streaks protected</span>}
+              {!isGraceDay&&progressMsg&&<span style={{fontSize:11,color:"#4a7c59",fontWeight:600}}>{progressMsg}</span>}
                 {quotes.length>1&&<span style={{fontSize:10,color:"#4a7c59",opacity:.6,marginLeft:"auto"}}>tap to cycle · {(quoteIdx%quotes.length)+1}/{quotes.length}</span>}
               </div>
             </div>
             {habits.map(h=>{
-              const isDone=logs[today]?.[h.id]?.done,d=logs[today]?.[h.id]?.duration,s=streak(logs,h.id),nm=nextMile(s),ib=burst===h.id;
+              const isDone=logs[today]?.[h.id]?.done,d=logs[today]?.[h.id]?.duration,s=streak(logs,h.id,graceDays),nm=nextMile(s),ib=burst===h.id;
               return (
                 <div key={h.id} className={`hcard${ib?" burst":""}`} onClick={()=>tap(h.id)} style={{borderColor:isDone?h.accent:"transparent"}}>
                   <div style={{display:"flex",alignItems:"center",gap:12}}>
@@ -1154,7 +1238,7 @@ function App({user, onSignOut}){
           </div>
         )}
 
-        {view==="journal"&&<JournalView journals={journals} setJournals={setJournals}/>}
+        {view==="journal"&&<JournalView journals={journals} setJournals={setJournals} weeklyReviews={weeklyReviews} isSunday={isSunday} thisWeekKey={thisWeekKey} onGenerateReview={generateWeeklyReview} reviewLoading={reviewLoading}/>}
         {view==="trends"&&<TrendsView logs={logs} habits={habits}/>}
 
         {/* CALENDAR */}
@@ -1252,7 +1336,7 @@ function App({user, onSignOut}){
               <button onClick={()=>setAddOpen(true)} style={{border:"none",borderRadius:100,padding:"8px 16px",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:"pointer",background:"#4a7c59",color:"#fff"}}>+ Add</button>
             </div>
             {habits.map(h=>{
-              const s=streak(logs,h.id),lg=longestStreak(logs,h.id),total=Object.values(logs).filter(d=>d[h.id]?.done).length,nm=nextMile(s);
+              const s=streak(logs,h.id,graceDays),lg=longestStreak(logs,h.id,graceDays),total=Object.values(logs).filter(d=>d[h.id]?.done).length,nm=nextMile(s);
               const avgD=pAvg(logs,h.id,h.unit,7);
               const last7=Array.from({length:7}).map((_,i)=>{const d=new Date();d.setDate(d.getDate()-(6-i));return{day:DAYS[d.getDay()],dur:logs[dateKey(d)]?.[h.id]?.duration||0,done:logs[dateKey(d)]?.[h.id]?.done||false};});
               const maxDur=Math.max(...last7.map(x=>x.dur),h.defaultGoal||1,1);
@@ -1281,6 +1365,26 @@ function App({user, onSignOut}){
             })}
             {habits.length===0&&<div style={{textAlign:"center",color:"#94a3b8",padding:40}}><div style={{fontSize:40,marginBottom:12}}>🌱</div><p>No habits yet. Tap + Add to get started.</p></div>}
 
+
+
+            {/* ── Grace Days ── */}
+            <div style={{background:"#fff",borderRadius:18,padding:"18px 20px",marginBottom:14,boxShadow:"0 2px 14px rgba(0,0,0,.05)"}}>
+              <div style={{fontSize:13,fontWeight:600,color:"#1f2d1f",marginBottom:4}}>Grace Days</div>
+              <div style={{fontSize:12,color:"#94a3b8",marginBottom:14}}>Streaks won't break on these days, even if you skip.</div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {[["Sun",0],["Mon",1],["Tue",2],["Wed",3],["Thu",4],["Fri",5],["Sat",6]].map(([label,dow])=>{
+                  const on=graceDays.includes(dow);
+                  return <button key={dow} onClick={()=>setGraceDays(p=>on?p.filter(d=>d!==dow):[...p,dow])}
+                    style={{border:`2px solid ${on?"#4a7c59":"#d4e4d4"}`,borderRadius:100,padding:"7px 14px",background:on?"#4a7c59":"#fff",color:on?"#fff":"#64748b",cursor:"pointer",fontSize:13,fontWeight:500,fontFamily:"'DM Sans',sans-serif",transition:"all .15s"}}>
+                    {label}
+                  </button>;
+                })}
+              </div>
+              {graceDays.length>0&&<div style={{marginTop:10,fontSize:11,color:"#4a7c59"}}>
+                🌿 {graceDays.map(d=>["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d]).join(", ")} {graceDays.length===1?"is a":"are"} grace day{graceDays.length>1?"s":""}
+              </div>}
+              {graceDays.length===0&&<div style={{marginTop:10,fontSize:11,color:"#94a3b8"}}>No grace days set — every day counts.</div>}
+            </div>
 
             {/* ── App Name ── */}
             <div style={{background:"#fff",borderRadius:18,padding:"18px 20px",marginBottom:14,boxShadow:"0 2px 14px rgba(0,0,0,.05)"}}>
