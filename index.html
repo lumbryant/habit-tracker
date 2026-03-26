@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0"/>
-<title>Who will I be next year ✨</title>
+<title>Flourish ✨</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✨</text></svg>"/>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -21,7 +21,7 @@ const SUPA_KEY = "sb_publishable_CLJw5F6D8V-3cThbkNgc0w_xyRzR7VI";
 const db = window.supabase.createClient(SUPA_URL, SUPA_KEY, {
   auth: {
     persistSession: true,
-    storageKey: "Who will I be next year_auth",
+    storageKey: "flourish_auth",
     storage: window.localStorage,
     autoRefreshToken: true,
   }
@@ -70,7 +70,7 @@ function AuthScreen({onAuth}){
         {/* Logo */}
         <div style={{textAlign:"center",marginBottom:28}}>
           <div style={{fontSize:42,marginBottom:8}}>🌿</div>
-          <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:30,fontWeight:700,color:"#1f2d1f",letterSpacing:"-0.5px"}}>Who will I be next year</h1>
+          <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:30,fontWeight:700,color:"#1f2d1f",letterSpacing:"-0.5px"}}>Flourish</h1>
           <p style={{fontSize:13,color:"#94a3b8",marginTop:4}}>{mode==="login"?"Welcome back":"Create your account"}</p>
         </div>
 
@@ -161,14 +161,14 @@ const PALETTE=[["#ffd6d6","#d64545"],["#ffd6f0","#c4357a"],["#e8d6ff","#7c4fc4"]
 
 
 const DEFAULT_QUOTES = [
-  "If you get 1% better each day for one year, you’ll end up 37 times better by the time you’re done.",
+  "If you get 1% better each day for one year, you'll end up 37 times better by the time you're done.",
   "Success is the product of daily habits—not once-in-a-lifetime transformations.",
   "You do not rise to the level of your goals. You fall to the level of your systems.",
   "Discipline is choosing between what you want now and what you want most.",
   "The ultimate form of intrinsic motivation is when a habit becomes part of your identity.",
   "Compare yourself to who you were yesterday, not to who someone else is today.",
   "You are in danger of living a life so comfortable and soft that you will die without ever realizing your true potential.",
-  "Don’t live the same year 75 times and call it a life.",
+  "Don't live the same year 75 times and call it a life.",
 ];
 
 
@@ -886,7 +886,7 @@ function App({user, onSignOut}){
   const [quoteIdx,   setQuoteIdx]   = useState(()=>ls("fl_qidx",0));
   const [quoteEditIdx,setQuoteEditIdx] = useState(null);
   const [quoteEditTxt,setQuoteEditTxt] = useState("");
-  const [appName, setAppName] = useState(()=>ls("fl_appname","Who will I be next year"));
+  const [appName, setAppName] = useState(()=>ls("fl_appname","Flourish"));
   const [habits,  setHabits]  = useState(()=>ls("fl_habits",DEFAULT_HABITS));
   const [journals,setJournals]= useState(()=>ls("fl_journals",{}));
   const [periods, setPeriods] = useState(()=>ls("fl_periods",DEFAULT_PERIODS));
@@ -920,11 +920,13 @@ function App({user, onSignOut}){
       if(!user) return;
       setSyncing(true);
       try {
+        console.log("Loading from Supabase for user:", user.id);
         const {data,error} = await db
-          .from("Who will I be next year_data")
+          .from("flourish_data")
           .select("data,updated_at")
           .eq("user_id", user.id)
           .single();
+        console.log("Supabase load result:", {data: !!data, error: error?.code});
         if(error && error.code !== "PGRST116") throw error; // PGRST116 = no rows
         if(data){
           const d = data.data;
@@ -953,12 +955,25 @@ function App({user, onSignOut}){
         data: {logs,habits,journals,periods,quotes,appName,calVis},
         updated_at: new Date().toISOString(),
       };
-      db.from("Who will I be next year_data")
-        .upsert(payload, {onConflict:"user_id"})
-        .then(({error})=>{
-          if(error) console.error("Sync error:", error);
-          else setLastSync(new Date());
-          setSyncing(false);
+      // Try update first, then insert if no row exists
+      db.from("flourish_data")
+        .update({data:payload.data, updated_at:payload.updated_at})
+        .eq("user_id", user.id)
+        .then(({data:updated, error:updateErr})=>{
+          if(updateErr){ console.error("Update error:", updateErr); setSyncing(false); return; }
+          // If no rows updated, insert instead
+          if(!updated || updated.length===0){
+            db.from("flourish_data")
+              .insert(payload)
+              .then(({error:insertErr})=>{
+                if(insertErr) console.error("Insert error:", insertErr);
+                else setLastSync(new Date());
+                setSyncing(false);
+              });
+          } else {
+            setLastSync(new Date());
+            setSyncing(false);
+          }
         });
     };
     const t = setTimeout(saveData, 1500);
@@ -1022,13 +1037,10 @@ function App({user, onSignOut}){
   const visHabits=habits.filter(h=>calVis[h.id]!==false);
   function dayDots(k){ return visHabits.filter(h=>logs[k]?.[h.id]?.done); }
   function hasJ(k){ return journals[k]&&Object.keys(journals[k]).length>0; }
-  const motivMsg=()=>{
-    if(pct===100)return"🎉 Perfect day! You crushed it!";
-    if(pct>=80)return"💪 Almost there — finish strong!";
-    if(pct>=50)return"🌱 Great momentum, keep going!";
-    if(done>0&&pct<100)return quotes.length>0?quotes[quoteIdx%quotes.length]:"✨ Good start! Every step counts.";
-    return quotes.length>0?quotes[quoteIdx%quotes.length]:"☀️ A fresh day awaits.";
-  };
+  
+  // Quote always shows; progress message shown as a small badge below
+  const currentQuote = quotes.length>0 ? quotes[quoteIdx%quotes.length] : "☀️ A fresh day awaits. Let's build something great.";
+  const progressMsg = pct===100?"🎉 Perfect day! You crushed it!":pct>=80?"💪 Almost there — finish strong!":pct>=50?"🌱 Great momentum, keep going!":done>0?"✨ Good start! Every step counts.":null;
   function cycleQuote(){ if(quotes.length>1) setQuoteIdx(i=>(i+1)%quotes.length); }
 
   const calMk=Array.from({length:daysInMo},(_,i)=>`${y}-${String(mo+1).padStart(2,"0")}-${String(i+1).padStart(2,"0")}`).filter(k=>!isFuture(k));
@@ -1107,9 +1119,12 @@ function App({user, onSignOut}){
         {/* TODAY */}
         {view==="today"&&(
           <div className="fade">
-            <div onClick={()=>{if(quotes.length>0)cycleQuote();}} style={{background:"linear-gradient(135deg,#e8f4e8,#ddeedd)",borderRadius:18,padding:"14px 18px",marginBottom:20,borderLeft:"4px solid #4a7c59",cursor:quotes.length>1?"pointer":"default",transition:"opacity .15s"}}>
-              <p style={{fontSize:14,color:"#2d4a2d",fontWeight:500,lineHeight:1.5}}>{motivMsg()}</p>
-              {quotes.length>1&&<p style={{fontSize:10,color:"#4a7c59",marginTop:5,opacity:.7}}>tap to cycle · {(quoteIdx%quotes.length)+1}/{quotes.length}</p>}
+            <div onClick={()=>cycleQuote()} style={{background:"linear-gradient(135deg,#e8f4e8,#ddeedd)",borderRadius:18,padding:"14px 18px",marginBottom:20,borderLeft:"4px solid #4a7c59",cursor:quotes.length>1?"pointer":"default"}}>
+              <p style={{fontSize:14,color:"#2d4a2d",fontWeight:500,lineHeight:1.5}}>"{currentQuote}"</p>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:8}}>
+                {progressMsg&&<span style={{fontSize:11,color:"#4a7c59",fontWeight:600}}>{progressMsg}</span>}
+                {quotes.length>1&&<span style={{fontSize:10,color:"#4a7c59",opacity:.6,marginLeft:"auto"}}>tap to cycle · {(quoteIdx%quotes.length)+1}/{quotes.length}</span>}
+              </div>
             </div>
             {habits.map(h=>{
               const isDone=logs[today]?.[h.id]?.done,d=logs[today]?.[h.id]?.duration,s=streak(logs,h.id),nm=nextMile(s),ib=burst===h.id;
@@ -1272,8 +1287,8 @@ function App({user, onSignOut}){
               <div style={{fontSize:13,fontWeight:600,color:"#1f2d1f",marginBottom:12}}>App Name</div>
               <div style={{display:"flex",gap:10,alignItems:"center"}}>
 
-                <input value={appName} onChange={e=>setAppName(e.target.value)} onBlur={e=>{if(!e.target.value.trim())setAppName("Who will I be next year");}} placeholder="Who will I be next year" style={{flex:1,border:"1.5px solid #d4e4d4",borderRadius:12,padding:"10px 14px",fontSize:16,fontFamily:"'Playfair Display',serif",fontWeight:700,color:"#1f2d1f",outline:"none",background:"#fafcfa"}}/>
-                <button onClick={()=>setAppName("Who will I be next year")}
+                <input value={appName} onChange={e=>setAppName(e.target.value)} onBlur={e=>{if(!e.target.value.trim())setAppName("Flourish");}} placeholder="Flourish" style={{flex:1,border:"1.5px solid #d4e4d4",borderRadius:12,padding:"10px 14px",fontSize:16,fontFamily:"'Playfair Display',serif",fontWeight:700,color:"#1f2d1f",outline:"none",background:"#fafcfa"}}/>
+                <button onClick={()=>setAppName("Flourish")}
                   style={{border:"none",borderRadius:10,padding:"10px 14px",fontSize:12,fontFamily:"'DM Sans',sans-serif",cursor:"pointer",background:"#f2f6f2",color:"#94a3b8",whiteSpace:"nowrap"}}>Reset</button>
               </div>
               <div style={{fontSize:11,color:"#94a3b8",marginTop:8}}>This name shows at the top of your app</div>
@@ -1292,10 +1307,10 @@ function App({user, onSignOut}){
               <div style={{fontFamily:"'Playfair Display',serif",fontSize:19,color:"#1f2d1f",marginBottom:4}}>Backup & Restore</div>
               <div style={{fontSize:12,color:"#94a3b8",marginBottom:14}}>Export weekly to protect your data. Import anytime to restore.</div>
               <button onClick={()=>{
-                const data={version:1,exportedAt:new Date().toISOString(),logs:JSON.parse(localStorage.getItem("fl_logs")||"{}"),habits:JSON.parse(localStorage.getItem("fl_habits")||"[]"),journals:JSON.parse(localStorage.getItem("fl_journals")||"{}"),periods:JSON.parse(localStorage.getItem("fl_periods")||"[]"),quotes:JSON.parse(localStorage.getItem("fl_quotes")||"[]"),appName:localStorage.getItem("fl_appname")||"Who will I be next year",calVis:JSON.parse(localStorage.getItem("fl_cal_vis")||"null")};
+                const data={version:1,exportedAt:new Date().toISOString(),logs:JSON.parse(localStorage.getItem("fl_logs")||"{}"),habits:JSON.parse(localStorage.getItem("fl_habits")||"[]"),journals:JSON.parse(localStorage.getItem("fl_journals")||"{}"),periods:JSON.parse(localStorage.getItem("fl_periods")||"[]"),quotes:JSON.parse(localStorage.getItem("fl_quotes")||"[]"),appName:localStorage.getItem("fl_appname")||"Flourish",calVis:JSON.parse(localStorage.getItem("fl_cal_vis")||"null")};
                 const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
                 const url=URL.createObjectURL(blob);
-                const a=document.createElement("a");a.href=url;a.download=`Who will I be next year-backup-${new Date().toISOString().split("T")[0]}.json`;a.click();URL.revokeObjectURL(url);
+                const a=document.createElement("a");a.href=url;a.download=`flourish-backup-${new Date().toISOString().split("T")[0]}.json`;a.click();URL.revokeObjectURL(url);
               }} style={{width:"100%",border:"none",borderRadius:14,padding:"14px",fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:600,cursor:"pointer",background:"#4a7c59",color:"#fff",boxShadow:"0 4px 14px rgba(74,124,89,.25)",marginBottom:10,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
                 <span style={{fontSize:18}}>📤</span> Export My Data
               </button>
