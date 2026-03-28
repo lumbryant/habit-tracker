@@ -596,7 +596,7 @@ function JournalView({journals,setJournals,weeklyReviews,isSunday,thisWeekKey,on
 }
 
 /* ── Trends View ── */
-function TrendsView({logs,habits}){
+function TrendsView({logs,habits,graceDays=[]}){
   const [range,setRange]=useState("7d");
   const [selH,setSelH]=useState(habits[0]?.id||null);
   const h=habits.find(x=>x.id===selH)||habits[0];
@@ -1239,9 +1239,8 @@ function App({user, onSignOut}){
         )}
 
         {view==="journal"&&<JournalView journals={journals} setJournals={setJournals} weeklyReviews={weeklyReviews} isSunday={isSunday} thisWeekKey={thisWeekKey} onGenerateReview={generateWeeklyReview} reviewLoading={reviewLoading}/>}
-        {view==="trends"&&<TrendsView logs={logs} habits={habits}/>}
+        {view==="trends"&&<TrendsView logs={logs} habits={habits} graceDays={graceDays}/>}
 
-        {/* CALENDAR */}
         {view==="calendar"&&(
           <div className="fade">
             <div style={{background:"#fff",borderRadius:20,padding:"14px 16px",marginBottom:14,boxShadow:"0 2px 14px rgba(0,0,0,.05)"}}>
